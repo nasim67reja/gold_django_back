@@ -1,3 +1,8 @@
+import pandas as pd
+
+from rest_framework.parsers import MultiPartParser, FormParser
+
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -56,3 +61,67 @@ class PriceDetailAPIView(APIView):
 
         price.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+
+
+
+class PriceCSVUploadAPIView(APIView):
+    parser_classes = (MultiPartParser, FormParser)
+
+    def post(self, request):
+        file = request.FILES.get("file")
+
+        if not file:
+            return Response(
+                {"error": "CSV file is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not file.name.endswith(".csv"):
+            return Response(
+                {"error": "Only CSV files are allowed"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            df = pd.read_csv(file)
+        except Exception as e:
+            return Response(
+                {"error": f"Invalid CSV file: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        required_columns = {"time", "open", "high", "low", "close"}
+        if not required_columns.issubset(df.columns):
+            return Response(
+                {
+                    "error": "CSV must contain columns: time, open, high, low, close"
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        created = 0
+        errors = []
+
+        for index, row in df.iterrows():
+            serializer = PriceDataSerializer(data=row.to_dict())
+
+            if serializer.is_valid():
+                serializer.save()
+                created += 1
+            else:
+                errors.append({
+                    "row": index + 1,
+                    "errors": serializer.errors
+                })
+
+        return Response(
+            {
+                "message": "CSV processed",
+                "rows_created": created,
+                "rows_failed": len(errors),
+                "errors": errors
+            },
+            status=status.HTTP_201_CREATED
+        )
