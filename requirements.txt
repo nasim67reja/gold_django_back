@@ -3,3 +3,5 @@ djangorestframework
 python-dotenv
 pandas
 mysqlclient
+yfinance
+oandadata
