@@ -5,3 +5,4 @@ pandas
 mysqlclient
 yfinance
 oandadata
+matplotlib
